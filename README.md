@@ -1,1 +1,0 @@
-# Mitosis-Detection-using-CNN
