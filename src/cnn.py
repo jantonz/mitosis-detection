@@ -16,127 +16,156 @@ from keras import backend as K
 from keras.engine.topology import Layer, InputSpec
 from sklearn import svm
 
-def data_preprocess(path,d):
-	img=[]
-	label=[]
-	count=0
-	for j in os.listdir(path):
-		count = count+1
-		if os.path.isfile(path+j):
-			try:		
-				dst = cv2.imread(path+j,1)
-				#print(dst.shape)
-			except IOError:
-				continue
-		img.append(dst)
-		label.append(d[count-1])
-	data=np.array(img)
-	data =data / 255
-	label = np.array(label)
-	label1 = np_utils.to_categorical(label,2)
-	return data,label1,label
 
-def cnn(xtrain,ytrain,yytrain,xtest,ytest,yytest):
-	#Declare a sequential model
-	model=Sequential()
-	#Input layer
-	model.add(Convolution2D(96,(11,11),activation='relu',input_shape=xtrain[0].shape,data_format='channels_last'))
-	model.add(MaxPooling2D(pool_size=(3,3)))
-	model.add(Convolution2D(384,(3,3),activation='relu',data_format='channels_last'))
-	model.add(MaxPooling2D(pool_size=(3,3)))
-	#Normalisation layer
-	layer = LocalResponseNormalisation()
-	layer_config = layer.get_config()
-	layer_config["input_shape"] = xtrain.shape
-	layer = layer.__class__.from_config(layer_config)
-	model.add(layer)
-	model.add(Convolution2D(384,(3,3),activation='relu',data_format='channels_last',padding="same"))
-	model.add(Convolution2D(384,(3,3),activation='relu',data_format='channels_last',padding="same"))
-	model.add(Convolution2D(128,(3,3),activation='relu',data_format='channels_last',padding="same"))
-	model.add(MaxPooling2D(pool_size=(3,3),padding="same"))
-	#Fully connected layers left
-	model.add(Flatten())
-	model.add(Dense(4096,activation='relu'))
-	model.add(Dense(4096,activation='relu'))
-	#get the output of this layer
-	model.add(Dense(2,activation='softmax'))
-	get_activations=K.function([model.layers[0].input,K.learning_phase()],[model.layers[11].output])
-	feature=get_activations([xtrain,0])
-	feature1=get_activations([xtest,0])
-	print(len(feature),len(feature[0]),len(feature[0][0]))
-	#2 refers to two class labels
-	model.compile(loss='categorical_crossentropy',
-				optimizer='adam',
-				metrics=['accuracy'])
-	model.fit(xtrain,ytrain)
-	score=model.evaluate(xtest,ytest)
-	print(score) #Score if we use the softmax classification instead of svm
-	#model.summary()
-	svc = svm.SVC(kernel='rbf', C=1,gamma='auto')
-	xs=np.array(feature[0])
-	'''X_std = StandardScaler().fit_transform(xs)
+def data_preprocess(path, d):
+    img = []
+    label = []
+    count = 0
+    for j in os.listdir(path):
+        count = count + 1
+        if os.path.isfile(path + j):
+            try:
+                dst = cv2.imread(path + j, 1)
+                # print(dst.shape)
+            except IOError:
+                continue
+        img.append(dst)
+        label.append(d[count - 1])
+    data = np.array(img)
+    data = data / 255
+    label = np.array(label)
+    label1 = np_utils.to_categorical(label, 2)
+    return data, label1, label
+
+
+def cnn(xtrain, ytrain, yytrain, xtest, ytest, yytest):
+    # Declare a sequential model
+    model = Sequential()
+    # Input layer
+    model.add(
+        Convolution2D(
+            96,
+            (11, 11),
+            activation="relu",
+            input_shape=xtrain[0].shape,
+            data_format="channels_last",
+        )
+    )
+    model.add(MaxPooling2D(pool_size=(3, 3)))
+    model.add(
+        Convolution2D(384, (3, 3), activation="relu", data_format="channels_last")
+    )
+    model.add(MaxPooling2D(pool_size=(3, 3)))
+    # Normalisation layer
+    layer = LocalResponseNormalisation()
+    # layer_config = layer.get_config()
+    # layer_config["input_shape"] = xtrain.shape
+    # layer = layer.__class__.from_config(layer_config)
+    model.add(layer)
+    model.add(
+        Convolution2D(
+            384, (3, 3), activation="relu", data_format="channels_last", padding="same"
+        )
+    )
+    model.add(
+        Convolution2D(
+            384, (3, 3), activation="relu", data_format="channels_last", padding="same"
+        )
+    )
+    model.add(
+        Convolution2D(
+            128, (3, 3), activation="relu", data_format="channels_last", padding="same"
+        )
+    )
+    model.add(MaxPooling2D(pool_size=(3, 3), padding="same"))
+    # Fully connected layers left
+    model.add(Flatten())
+    model.add(Dense(4096, activation="relu"))
+    model.add(Dense(4096, activation="relu"))
+    # get the output of this layer
+    model.add(Dense(2, activation="softmax"))
+    get_activations = K.function(
+        [model.layers[0].input, K.learning_phase()], [model.layers[11].output]
+    )
+    feature = get_activations([xtrain, 0])
+    feature1 = get_activations([xtest, 0])
+    print(len(feature), len(feature[0]), len(feature[0][0]))
+    # 2 refers to two class labels
+    model.compile(
+        loss="categorical_crossentropy", optimizer="adam", metrics=["accuracy"]
+    )
+    model.fit(xtrain, ytrain)
+    score = model.evaluate(xtest, ytest)
+    print(score)  # Score if we use the softmax classification instead of svm
+    # model.summary()
+    svc = svm.SVC(kernel="rbf", C=1, gamma="auto")
+    xs = np.array(feature[0])
+    """X_std = StandardScaler().fit_transform(xs)
 	pca = PCA(n_components=1096)
 	xs=pca.fit_transform(X_std)
-	'''
-	ys=np.array(yytrain)
-	print(xs.shape,ys.shape)
-	print(xtest.shape,yytest.shape)
-	'''lda=LDA(n_components=10)
-	xlda=lda.fit_transform(xs,ys)'''
-	svc.fit(xs,ys)
-	score=svc.score(np.array(feature1[0]),np.array(yytest))
-	print(score)
-	
-	predicted=svc.predict(np.array(feature1[0]))
-	#print(y_test,predicted)
-	cnfm=confusion_matrix(np.array(yytest),predicted)
-	print(cnfm)
-	'''svc.fit(xs,ys)
+	"""
+    ys = np.array(yytrain)
+    print(xs.shape, ys.shape)
+    print(xtest.shape, yytest.shape)
+    """lda=LDA(n_components=10)
+	xlda=lda.fit_transform(xs,ys)"""
+    svc.fit(xs, ys)
+    score = svc.score(np.array(feature1[0]), np.array(yytest))
+    print(score)
+
+    predicted = svc.predict(np.array(feature1[0]))
+    # print(y_test,predicted)
+    cnfm = confusion_matrix(np.array(yytest), predicted)
+    print(cnfm)
+    """svc.fit(xs,ys)
 	score=svc.score(xs,ys)
-	print(score)'''
-	
+	print(score)"""
+
+
 class LocalResponseNormalisation(Layer):
-	
-	def __init__(self, n=5, alpha=0.0005, beta=0.75, k=2, **kwargs):
-		self.n =n
-		self.alpha = alpha
-		self.beta = beta
-		self.k = k
-		super(LocalResponseNormalisation, self).__init__(**kwargs)
-	
-	def build(self,input_shape):
-		self.shape = input_shape
-		super(LocalResponseNormalisation, self).build(input_shape)
+    def __init__(self, n=5, alpha=0.0005, beta=0.75, k=2, **kwargs):
+        self.n = n
+        self.alpha = alpha
+        self.beta = beta
+        self.k = k
+        super(LocalResponseNormalisation, self).__init__(**kwargs)
 
-	def call(self,x,mask=None):
-		_,r,c,f = self.shape
-	#	_,f,r,c = self.shape
-		squared = K.square(x)
-		#print r,c,f,K.image_data_format
-		#print squared
-		pooled = K.pool2d(squared, (self.n, self.n), strides=(1, 1),padding="same", pool_mode="avg")
-		#print pooled		
-		summed = K.sum(pooled, axis=1, keepdims=True)
-		averaged = self.alpha * K.repeat_elements(summed, r, axis=1)
-		denom = K.pow(self.k + averaged, self.beta)
-		#print summed,averaged,x,denom
-		return x / denom	
+    def build(self, input_shape):
+        self.shape = input_shape
+        super(LocalResponseNormalisation, self).build(input_shape)
 
-	def compute_output_shape(self, input_shape):
-		return input_shape
+    def call(self, x, mask=None):
+        _, r, c, f = self.shape
+        # 	_,f,r,c = self.shape
+        squared = K.square(x)
+        # print r,c,f,K.image_data_format
+        # print squared
+        pooled = K.pool2d(
+            squared, (self.n, self.n), strides=(1, 1), padding="same", pool_mode="avg"
+        )
+        # print pooled
+        summed = K.sum(pooled, axis=1, keepdims=True)
+        averaged = self.alpha * K.repeat_elements(summed, r, axis=1)
+        denom = K.pow(self.k + averaged, self.beta)
+        # print summed,averaged,x,denom
+        return x / denom
 
-path='../output1/'
-data=csv.reader(open('trainlabels.csv','r'))
-d=[]
+    def compute_output_shape(self, input_shape):
+        return input_shape
+
+
+path = "../output1_/"
+data = csv.reader(open("trainlabels_.csv", "r"))
+d = []
 for j in data:
-	d.append(j[0])
-train,trainlabelcat,trainlabel=data_preprocess(path,d)
+    d.append(j[0])
+train, trainlabelcat, trainlabel = data_preprocess(path, d)
 print(train.shape)
-path='../output2/'
-data=csv.reader(open('testlabels.csv','r'))
+path = "../output2_/"
+data = csv.reader(open("testlabels.csv", "r"))
 del d[:]
 for j in data:
-	d.append(j[0])
-test,testlabelcat,testlabel=data_preprocess(path,d)
+    d.append(j[0])
+test, testlabelcat, testlabel = data_preprocess(path, d)
 print(test.shape)
-cnn(train,trainlabelcat,trainlabel,test,testlabelcat,testlabel)
+cnn(train, trainlabelcat, trainlabel, test, testlabelcat, testlabel)
