@@ -1,120 +1,215 @@
-from fastai.vision.all import *
+from keras.models import Sequential
+from keras.layers import Conv2D
+from keras.layers import MaxPooling2D
+from keras.layers import Dense
+from keras.layers import Flatten
+from keras.layers import Dropout
+from keras.preprocessing.image import ImageDataGenerator
+from keras.applications.vgg16 import VGG16
+from keras.utils import plot_model
 
-# from fastai.vision import *
-# from fastai.vision.data import ImageDataLoaders
-# from fastai.data.external import Path
-# from fastai.metrics import error_rate, accuracy
+import numpy as np
+import pandas as pd
 
-class OverSamplingCallback(Callback):
-    def __init__(self,learn:Learner):
-        super().__init__(learn)
-        self.labels = self.learn.data.train_dl.dataset.y.items
-        _, counts = np.unique(self.labels,return_counts=True)
-        self.weights = torch.DoubleTensor((1/counts)[self.labels])
-        self.label_counts = np.bincount([self.learn.data.train_dl.dataset.y[i].data for i in range(len(self.learn.data.train_dl.dataset))])
-        self.total_len_oversample = int(self.learn.data.c*np.max(self.label_counts))
-        
-    def on_train_begin(self, **kwargs):
-        self.learn.data.train_dl.dl.batch_sampler = BatchSampler(WeightedRandomSampler(weights,self.total_len_oversample), self.learn.data.train_dl.batch_size,False)
+from sklearn.metrics import classification_report, confusion_matrix
+from sklearn.metrics import ConfusionMatrixDisplay
 
-
-# Load data ####
-# Set path to root directory
-path = Path("../dataset")
-
-# View all files in directory
-path.ls()
-
-# # Data augmentation
-# path_hr = path / "train" / '1'
-# il = ImageDataLoaders.from_folder(path)
-# tfms = aug_transforms(max_rotate=25)
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 
-# def data_aug_one(ex_img, prox, qnt):
-#     for lop in range(0, qnt):
-#         image_name = str(prox).zfill(8) + ".jpg"
-#         dest = path_hr / image_name
-#         prox = prox + 1
-#         new_img = open_image(ex_img)
-#         new_img_fin = new_img.apply_tfms(
-#             tfms[0], new_img, xtra={tfms[1][0].tfm: {"size": 224}}, size=224
-#         )
-#         new_img_fin.save(dest)
+#######################################
+#### Train net with VGG16 + denses ####
+#######################################
 
+src_path_train = "../dataset/train/"
+src_path_test = "../dataset/train/"
 
-# prox = 20
-# qnt = 10
-# for imagen in il.items:
-#     data_aug_one(imagen, prox, qnt)
-#     prox = prox + qnt
-
-
-# We are creating a fastai DataBunch from our dataset
-data = ImageDataLoaders.from_folder(
-    path,
-    train="train",
-    valid="test",
-    # ds_tfms=aug_transforms(do_flip=False),
-    size=224,
-    bs=64,
-    num_workers=4,
+image_datagen = ImageDataGenerator(
+    rescale=1 / 255.0,
+    rotation_range=20,
+    zoom_range=0.05,
+    width_shift_range=0.05,
+    height_shift_range=0.05,
+    shear_range=0.05,
+    horizontal_flip=True,
+    fill_mode="nearest",
+    validation_split=0.20,
 )
 
-# Show what the data looks like after being transformed
-data.show_batch()
-# See the number of images in each data set
-print(len(data.train_ds), len(data.valid_ds))
+test_datagen = ImageDataGenerator(rescale=1 / 255.0)
 
-# Train model ####
-# Build the CNN model with the pretrained resnet18
-learn = cnn_learner(
-    data,
-    resnet34,
-    # pretrained=True,
-    # loss_func=CrossEntropyLossFlat(),
-    metrics=[accuracy],
-    model_dir="../model/",
+
+batch_size = 64
+train_generator = image_datagen.flow_from_directory(
+    directory=src_path_train,
+    target_size=(70, 70),
+    color_mode="rgb",
+    batch_size=batch_size,
+    class_mode="categorical",
+    subset="training",
+    shuffle=True,
+    seed=42,
+)
+valid_generator = image_datagen.flow_from_directory(
+    directory=src_path_train,
+    target_size=(70, 70),
+    color_mode="rgb",
+    batch_size=batch_size,
+    class_mode="categorical",
+    subset="validation",
+    shuffle=True,
+    seed=42,
+)
+test_generator = test_datagen.flow_from_directory(
+    directory=src_path_test,
+    target_size=(70, 70),
+    color_mode="rgb",
+    batch_size=1,
+    class_mode=None,
+    shuffle=False,
+    seed=42,
 )
 
-learn.fine_tune(epochs=1)
+base_model = VGG16(
+    include_top=False,
+    weights="imagenet",
+    input_shape=(70, 70, 3),
+)
+base_model.trainable = False
+base_model.summary()
 
-lr = learn.lr_find()
+model = Sequential()
+model.add(base_model)
+model.add(Flatten())
+model.add(Dense(64, activation="relu"))
+model.add(Dense(2, activation="softmax"))
+model.compile()
+model.compile(
+    loss="categorical_crossentropy", optimizer="adam", metrics=["AUC", "accuracy"]
+)
+model.summary()
 
-learn.fine_tune(4, 1e-2)
+# model = Sequential()
+# model.add(Conv2D(32, kernel_size=(3, 3), activation="relu", input_shape=(70, 70, 3)))
+# model.add(MaxPooling2D(pool_size=(2, 2)))
+# model.add(Flatten())
+# model.add(Dense(16, activation="relu"))
+# model.add(Dense(2, activation="softmax"))
+# model.compile(loss="binary_crossentropy", optimizer="adam", metrics=["AUC", "accuracy"])
 
-learn.show_results(max_n=4)
+history = model.fit(
+    train_generator,
+    validation_data=train_generator,
+    steps_per_epoch=train_generator.n // train_generator.batch_size,
+    validation_steps=valid_generator.n // valid_generator.batch_size,
+    epochs=100,
+)
+
+# create a HDF5 file 'my_model.h5'
+model.save("model.h5")
 
 
+#######################################
+#### Plot training and other plots ####
+#######################################
 
-# Train the model on 4 epochs of data at the default learning rate
-learn.fit_one_cycle(4)
+# plot model summary
+plot_model(model)
 
-# Save the model
-learn.save("stage-1")
+# list all data in history
+print(history.history.keys())
 
-# Load the Model
-learn.load("stage-1")
+# summarize history for accuracy
+plt.plot(history.history["accuracy"])
+plt.plot(history.history["val_accuracy"])
+plt.title("model accuracy")
+plt.ylabel("accuracy")
+plt.xlabel("epoch")
+plt.legend(["train", "test"], loc="upper left")
+plt.show()
 
-# Unfreeze all layers of the CNN
-learn.unfreeze()
+# summarize history for loss
+plt.plot(history.history["loss"])
+plt.plot(history.history["val_loss"])
+plt.title("model loss")
+plt.ylabel("loss")
+plt.xlabel("epoch")
+plt.legend(["train", "test"], loc="upper left")
+plt.show()
 
-# Find the optimal learning rate and plot a visual
-learn.lr_find()
+# summarize history for AUC
+plt.plot(history.history["auc"])
+plt.plot(history.history["val_auc"])
+plt.title("model auc")
+plt.ylabel("auc")
+plt.xlabel("epoch")
+plt.legend(["train", "test"], loc="upper left")
+plt.show()
 
-# Fit the model over 2 epochs
-learn.fit_one_cycle(2, max_lr=slice(3e-7, 5e-7))
+y_pred = model.predict(test_generator)
+y = np.argmax(y_pred, axis=1)
+print("Confusion Matrix")
+print(confusion_matrix(test_generator.classes, y))
 
-# Explore results ####
-# Rebuild interpreter and replot confusion matrix
-interp = ClassificationInterpretation.from_learner(learn)
+ConfusionMatrixDisplay.from_predictions(test_generator.classes, y)
+plt.show()
 
-# Confusion matrix
-interp.plot_confusion_matrix(figsize=(12, 12), dpi=60)
+print("Classification Report")
+target_names = ["not mitosis", "mitosis"]
+clf_report = classification_report(
+    test_generator.classes, y, target_names=target_names, output_dict=True
+)
 
-# Worst predictions (Predicted/Actual/Sum)
-interp.most_confused()
-interp.top_losses()
+sns.heatmap(pd.DataFrame(clf_report).iloc[:-1, :].T, annot=True)
 
-# Show images of worst predictions
-interp.plot_top_losses(8)
+
+#######################################
+#### Visualize images within VGG16 ####
+#######################################
+
+from keras.applications.vgg16 import VGG16
+from keras.applications.vgg16 import preprocess_input
+from keras.preprocessing.image import load_img
+from keras.preprocessing.image import img_to_array
+from keras.models import Model
+import matplotlib.pyplot as plt
+from numpy import expand_dims
+
+
+# load the model
+viz_model = VGG16()
+# redefine viz_model to output right after the first hidden layer
+ixs = [2, 5, 9, 13, 17]
+outputs = [viz_model.layers[i].output for i in ixs]
+viz_model = Model(inputs=viz_model.inputs, outputs=outputs)
+# load the image with the required shape
+# convert the image to an array
+img = load_img(f"../dataset/train/1/A03_00Aa_1_true.png", target_size=(224, 224))
+# convert the image to an array
+img = img_to_array(img)
+# expand dimensions so that it represents a single 'sample'
+img = expand_dims(img, axis=0)
+# prepare the image (e.g. scale pixel values for the vgg)
+img = preprocess_input(img)
+# get feature map for first hidden layer
+feature_maps = viz_model.predict(img)
+# plot the output from each block
+square = 4
+for j, fmap in enumerate(feature_maps):
+    # plot all 64 maps in an 8x8 squares
+    ix = 1
+    for _ in range(square):
+        plt.figure(figsize=(64, 64))
+        for _ in range(square):
+
+            # specify subplot and turn of axis
+            ax = plt.subplot(square, square, ix)
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+            # plot filter channel in grayscale
+            plt.imshow(fmap[0, :, :, ix - 1], cmap="viridis")
+            ix += 1
+    # show the figure
+    plt.show()

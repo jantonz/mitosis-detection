@@ -6,6 +6,12 @@ import matplotlib.pyplot as plt
 import subprocess
 
 
+def image_show_console(image):
+    cv2.imshow("Keypoints", image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
 def show_image_jupyter(image):
     # Convert BGR (cv2) into RGB (matplotlib)
     rgb_img = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
@@ -16,13 +22,13 @@ def show_image_jupyter(image):
 
 def smooth(img):
     dest = cv2.medianBlur(img, 7)
-    return(dest)
+    return dest
 
 
 def process(path, img):
     image = cv2.imread(os.path.join(path, img), 1)
     image = smooth(image)
-    return(image)
+    return image
 
 
 def kmeans(img, name, input_path, output_path, show=None):
@@ -40,11 +46,11 @@ def kmeans(img, name, input_path, output_path, show=None):
     res2 = res.reshape((img.shape))
     # res2 = img
     d = []
-    data = csv.reader(open("../labels_/" + name[:-5] + "_mitosis.csv", "r"))
+    data = csv.reader(open("../labels/" + name[:-5] + "_mitosis.csv", "r"))
     for j in data:
         d.append([j[0], j[1]])
     e = []
-    data = csv.reader(open("../labels_/" + name[:-5] + "_not_mitosis.csv", "r"))
+    data = csv.reader(open("../labels/" + name[:-5] + "_not_mitosis.csv", "r"))
     for j in data:
         e.append([j[0], j[1]])
     params = cv2.SimpleBlobDetector_Params()
@@ -132,27 +138,31 @@ def kmeans(img, name, input_path, output_path, show=None):
 
     if show in ["jupyter", "console"]:
         im_with_keypoints = cv2.drawKeypoints(
-            res2,
+            res2,  # empty: np.zeros(res2.shape, np.uint8) instead of res2
             keypoints,
             np.array([]),
             (0, 255, 0),
             cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
         )
-        # imgray_with_keypoints = cv2.drawKeypoints(
-        #     cv2.cvtColor(res2, cv2.COLOR_BGR2GRAY),
-        #     keypoints,
-        #     np.array([]),
-        #     (0, 0, 255),
-        #     cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
-        # )
-
         if show == "console":
-            cv2.imshow("Keypoints", im_with_keypoints)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
+            image_show_console(im_with_keypoints)
         if show == "jupyter":
             show_image_jupyter(im_with_keypoints)
+
+    if show in ["jupyter_bw", "console_bw"]:
+        imgray_with_keypoints = cv2.drawKeypoints(
+            cv2.cvtColor(
+                res2, cv2.COLOR_BGR2GRAY
+            ),  # empty: np.zeros(res2.shape, np.uint8) instead of res2
+            keypoints,
+            np.array([]),
+            (0, 0, 255),
+            cv2.DRAW_MATCHES_FLAGS_DRAW_RICH_KEYPOINTS,
+        )
+        if show == "console":
+            image_show_console(imgray_with_keypoints)
+        if show == "jupyter":
+            show_image_jupyter(imgray_with_keypoints)
 
 
 def preprocess(input_path, output_path):
@@ -165,37 +175,73 @@ def preprocess(input_path, output_path):
         j += 1
 
 
-# TODO
-# Download images from MEGA
-# mega-get https://mega.nz/#F\!ABcD1E2F\!gHiJ23k-LMno45PqrSTUvw /path/to/local/folder
+# Activate only once. It downloads the .tar.gz file, untars it,
+# moves the images to the corresponding folders and removes the tar file
+if False:
+    # Download images from MEGA (official MYTHOS ATIPIA link)
+    # There is a bandwith quota, which is reached after ~4 files, and then it
+    # needs to wait 2 houres before continuing the download
+    mega_files = [
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/aJgjFDLQ",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/6VRhSCDa",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/DEgzWDDK",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/CJgzFSTS",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/OYRU2YYa",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/rZQAnJZS",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/WV5B2YpB",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/DVQlwQYY",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/PNQE1ZQT",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/WYAHTRZb",
+        "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/7EISEJjT",
+    ]
 
-mega_files = [
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/aJgjFDLQ",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/6VRhSCDa",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/DEgzWDDK",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/CJgzFSTS",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/OYRU2YYa",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/rZQAnJZS",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/WV5B2YpB",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/DVQlwQYY",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/PNQE1ZQT",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/WYAHTRZb",
-    "https://mega.nz/folder/2BxGTQRZ#hcMq5iISw8tWhaSLkcCpYQ/file/7EISEJjT",
-]
-subprocess.run(["ls", "-la"])
+    for mega_file in mega_files:
+        print(f"Processing {mega_file}")
+        subprocess.run(["mega-get", "--ignore-quota-warn", mega_file, "../dataset/raw"])
+
+        # Untar files into corresponding folders
+        filename = [f for f in os.listdir("../dataset/raw") if ".tar" in f][0]
+        foldername = filename[0:3]
+
+        print(f"Untaring into {os.path.join('../dataset/raw', filename)}")
+        subprocess.run(
+            [
+                "tar",
+                "-xzf",
+                f"{os.path.join('../dataset/raw', filename)}",
+                "-C",
+                "../dataset/raw/train",
+                "--strip-components=3",
+                f"{foldername}/frames/x40",
+            ]
+        )
+
+        subprocess.run(
+            [
+                "tar",
+                "-xzf",
+                f"{os.path.join('../dataset/raw', filename)}",
+                "-C",
+                "../labels",
+                "--strip-components=2",
+                f"{foldername}/mitosis",
+            ]
+        )
+        # Remove tar.gz file
+        os.remove(f"{os.path.join('../dataset/raw', filename)}")
 
 
 # Preprocess train set
-output_path = "../dataset/train"
 input_path = "../dataset/raw/train"
+output_path = "../dataset/train"
 
 print("Preprocess train set")
 preprocess(input_path=input_path, output_path=output_path)
 
 
 # Preprocess test set
-output_path = "../dataset/test"
 input_path = "../dataset/raw/test"
+output_path = "../dataset/test"
 
 print("Preprocess test set")
 preprocess(input_path=input_path, output_path=output_path)

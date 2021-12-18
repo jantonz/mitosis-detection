@@ -4,10 +4,14 @@
 ##
 ## Add custom entries below here.
 ##
-*.png
-*.jpeg
-*.jpg
-*.tiff
+**.png
+**.jpeg
+**.jpg
+**.tiff
+model/
+output1-kmeans/
+output2-kmeans/
+.vscode/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

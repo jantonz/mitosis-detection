@@ -1,13 +1,2 @@
-Mitosis Detection using Convolutional Neural Network 
-
-IEEE Research Paper : 
-http://ieeexplore.ieee.org/document/7846429/
-
-Dataset :
-MITOS dataset provided in ICPR 2014
-https://mitos-atypia-14.grand-challenge.org/donwload/
-
-Summary : 
-
-	From the dataset each slide image is examined to test for mitotic and non-mitotic cell. In the preprocess step, each cell is extracted from the slide ignoring the non-cellular structures. Background subtraction, K-Means Clustering and Blob Analysis concepts are implemented to extract the cellular structures. After the preprocess step the extracted cell patches are sent to a convolutional neural network to extract the desired features. The test images are classified based on the extracted features of CNN.
-	CNN has been implemented using Keras library - Theano backend
+Breast cancer is the leading cause of cancerous death in women, accounting for more than a quarter of all cancers in women within the US. Survival rates increase as early detection increases, so there is an urge to develop improved methods for earlier detection \cite{FIGUEROA2021106585}. Of the many forms of breast cancer, the rate in which breast cancer cells grow is a strong indicator of a patient’s prognosis. The most common technique for determining the proliferation speed is through mitotic count estimates, in which a pathologist counts the dividing cell nuclei in stained slide preparations to determine the number of mitotic bodies. Given this, the pathologist produces a proliferation score of either 1, 2, or 3, ranging from better to worse prognosis. Deep neural networks can provide a more reproducible and scalable method for mitotic count.
+The present code is an attempt at counting mitosis in images from the MITOS & ATYPIA 2014 dataset.
